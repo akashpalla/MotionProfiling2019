@@ -7,6 +7,9 @@
 
 package frc.robot.subsystems;
 
+import com.ctre.phoenix.motorcontrol.ControlMode;
+import com.ctre.phoenix.motorcontrol.NeutralMode;
+import com.ctre.phoenix.motorcontrol.can.TalonFX;
 import com.kauailabs.navx.frc.AHRS;
 import com.revrobotics.CANError;
 import com.revrobotics.CANSparkMax;
@@ -38,60 +41,47 @@ public class Drivetrain extends SubsystemBase {
   // here. Call these from Commands.
 
 
-  public static final double kTrackWidthMeters = .78;    
-  public static final double kTrackScrubFactor = 1.0469745223;
-  private static final double kEpsilon = 1E-9;
-
-  public CANSparkMax leftMaster, rightMaster, leftFollower, rightFollower;
+  public TalonFX leftMaster, rightMaster, leftFollower, rightFollower;
   public AHRS navX;
 
-  DifferentialDriveKinematics kinematics;
-  DifferentialDriveOdometry odometry;
+  private DifferentialDriveKinematics kinematics;
+  private DifferentialDriveOdometry odometry;
 
-  SimpleMotorFeedforward feedForward; 
-  PIDController leftDriveController, rightDriveController;
+  private SimpleMotorFeedforward feedForward; 
+  private PIDController leftDriveController, rightDriveController;
  
   public Drivetrain(){
-    leftMaster = new CANSparkMax(2, MotorType.kBrushless);
-    rightMaster = new CANSparkMax(6, MotorType.kBrushless);
-    leftFollower = new CANSparkMax(5, MotorType.kBrushless);
-    rightFollower = new CANSparkMax(1, MotorType.kBrushless);
+    leftMaster = new TalonFX(5);
+    rightMaster = new TalonFX(1);
+    leftFollower =new TalonFX(3);
+    rightFollower = new TalonFX(2);
   
-
-    leftMaster.restoreFactoryDefaults();
-    rightMaster.restoreFactoryDefaults();
-    leftFollower.restoreFactoryDefaults();
-    rightFollower.restoreFactoryDefaults();
+    leftMaster.configFactoryDefault();
+    leftFollower.configFactoryDefault();
+    rightMaster.configFactoryDefault();
+    rightFollower.configFactoryDefault();
 
     navX = new AHRS(SPI.Port.kMXP);
-  
-    leftFollower.follow(leftMaster);
-    rightFollower.follow(rightMaster);
 
     leftMaster.setInverted(false);
     rightMaster.setInverted(true);
-   //  rightFollower.setInverted(true);
-    
-   // leftMaster.burnFlash();
-   // rightMaster.burnFlash();
+    rightFollower.setInverted(true);
+    leftFollower.setInverted(false);
 
-    leftMaster.getEncoder().setPosition(0);
-    rightMaster.getEncoder().setPosition(0);
 
-    leftMaster.setIdleMode(IdleMode.kBrake);
-    rightMaster.setIdleMode(IdleMode.kBrake);
-    
-    leftFollower.setIdleMode(IdleMode.kBrake);
-    rightFollower.setIdleMode(IdleMode.kBrake);
-    
+   
+    leftFollower.follow(leftMaster);
+    rightFollower.follow(rightMaster);
+
+
+    resetEncoderPosition();
+  
     navX.reset();
-    
-    //rightMaster.getEncoder().setInverted(true);
 
-    kinematics = new DifferentialDriveKinematics(kTrackWidthMeters);
+    kinematics = new DifferentialDriveKinematics(Constants.kTrackWidthMeters);
     odometry = new DifferentialDriveOdometry(getGyroAngle());
-    feedForward = new SimpleMotorFeedforward(0,2.5,0);  // Use Gains from Characteriztion Tool
-
+    feedForward = new SimpleMotorFeedforward(0.319,5.2,.352);  // Use Gains from Characteriztion Tool
+    //feedForward = new SimpleMotorFeedforward(0, 3,0);
     leftDriveController = new PIDController(0, 0, 0);   // Use Gains from Characterization Tool
     rightDriveController = new PIDController(0, 0, 0);
    
@@ -107,8 +97,22 @@ public class Drivetrain extends SubsystemBase {
     SmartDashboard.putNumber("X", curr.getTranslation().getX());
     SmartDashboard.putNumber("Y", curr.getTranslation().getY());
 
-//   System.out.print(curr.getTranslation().getX() + "    " + curr.getTranslation().getY());
    
+  }
+
+
+  public void configureIdleMode(NeutralMode mode){
+    leftMaster.setNeutralMode(mode);
+    rightMaster.setNeutralMode(mode);
+    leftFollower.setNeutralMode(mode);
+    rightFollower.setNeutralMode(mode);
+  }
+
+  public void resetEncoderPosition(){
+    leftMaster.setSelectedSensorPosition(0);
+    rightMaster.setSelectedSensorPosition(0);
+    leftFollower.setSelectedSensorPosition(0);
+    rightFollower.setSelectedSensorPosition(0);
   }
 
   public void cheesyIshDrive(double throttle, double wheel, boolean quickTurn){
@@ -136,11 +140,11 @@ public class Drivetrain extends SubsystemBase {
 
     wheel *= kWheelGain;
     Twist2d motion = new Twist2d(throttle, 0, wheel);
-    if (Math.abs(motion.dtheta) < kEpsilon) {
+    if (Math.abs(motion.dtheta) < Constants.kEpsilon) {
       leftOutput = motion.dx;
       rightOutput = motion.dx;
     }else{
-      double delta_v = Units.metersToInches(kTrackWidthMeters) * motion.dtheta / (2 * kTrackScrubFactor);
+      double delta_v = Units.metersToInches(Constants.kTrackWidthMeters) * motion.dtheta / (2 * Constants.kTrackScrubFactor);
       leftOutput = motion.dx - delta_v;
       rightOutput = motion.dx + delta_v;
     }
@@ -151,8 +155,8 @@ public class Drivetrain extends SubsystemBase {
   }
 
   public void setLeftRightMotorOutputs(double left, double right){
-    leftMaster.set(left);
-    rightMaster.set(right);
+    leftMaster.set(ControlMode.PercentOutput, left);
+    rightMaster.set(ControlMode.PercentOutput, right);
 
   }
 
@@ -169,8 +173,7 @@ public class Drivetrain extends SubsystemBase {
   }
 
   public void resetOdometry(){
-    leftMaster.getEncoder().setPosition(0);
-    rightMaster.getEncoder().setPosition(0);
+    resetEncoderPosition();
     navX.reset();
     odometry.resetPosition(new Pose2d(), getGyroAngle());
   }
@@ -178,19 +181,19 @@ public class Drivetrain extends SubsystemBase {
   //METERS
   public double getLeftEncoderDistance(){
    // System.out.println(leftMaster.getEncoder().getPosition() / Constants.kDriveGearRatio * 2 * Math.PI * Constants.kWheelRadiusMeters);
-    return leftMaster.getEncoder().getPosition() / Constants.kDriveGearRatio * 2 * Math.PI * Constants.kWheelRadiusMeters;
+    return leftMaster.getSelectedSensorPosition() / 2048 / Constants.kDriveGearRatio * 2 * Math.PI * Constants.kWheelRadiusMeters;
 
   }
 
   //METERS
   public double getRightEncoderDistance(){
-    return rightMaster.getEncoder().getPosition() / Constants.kDriveGearRatio * 2 * Math.PI * Constants.kWheelRadiusMeters;
+    return rightMaster.getSelectedSensorPosition() / 2048 / Constants.kDriveGearRatio * 2 * Math.PI * Constants.kWheelRadiusMeters;
   }
 
   public DifferentialDriveWheelSpeeds getWheelSpeeds(){
     return new DifferentialDriveWheelSpeeds(
-      leftMaster.getEncoder().getVelocity() / Constants.kDriveGearRatio * Constants.kWheelCircumferenceMeters/60,
-      rightMaster.getEncoder().getVelocity() / Constants.kDriveGearRatio * Constants.kWheelCircumferenceMeters/60
+      leftMaster.getSelectedSensorVelocity() / 2048 /Constants.kDriveGearRatio * Constants.kWheelCircumferenceMeters * 10,
+      rightMaster.getSelectedSensorVelocity() / 2048 /Constants.kDriveGearRatio * Constants.kWheelCircumferenceMeters* 10
     );
   }
 
@@ -215,6 +218,11 @@ public class Drivetrain extends SubsystemBase {
     return kinematics;
   }
 
+
+  public void log(){
+    SmartDashboard.putNumber("LEFT Distance Meters", getLeftEncoderDistance());
+    SmartDashboard.putNumber("Right Encoder Meters", getRightEncoderDistance());
+  }
   
 
 

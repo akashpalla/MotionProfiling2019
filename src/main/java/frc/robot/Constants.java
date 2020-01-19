@@ -13,9 +13,15 @@ import edu.wpi.first.wpilibj.util.Units;
  * Add your docs here.
  */
 public class Constants {
-    public static final double kMaxVeloctyMetersPerSecond = 2;
+    public static final double kMaxVeloctyMetersPerSecond = 1;
     public static final double kMaxAccelerationMetersPerSecondSq = 2;
-    public static final double kDriveGearRatio  = 8.08;
-    public static final double kWheelRadiusMeters = .075;
+    public static final double kDriveGearRatio  = 11.24;
+    public static final double kWheelRadiusMeters = .0762;
     public static final double kWheelCircumferenceMeters = 2 * Math.PI * kWheelRadiusMeters;
+
+    
+    public static final double kTrackWidthMeters = .6159;    
+    public static final double kTrackScrubFactor = 1.0469745223;
+    public static final double kEpsilon = 1E-9;
+
 }
